@@ -1,0 +1,11 @@
+{
+  "name": "chatkit-vuex",
+  "version": "0.0.1",
+  "description": "Vuex module for Pusher Chatkit",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Michoel Samuels",
+  "license": "ISC"
+}
