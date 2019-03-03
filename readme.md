@@ -1,11 +1,13 @@
 # Chatkit-Vuex
 
-## Usage
 
-
+## Installation
 ```bash
 npm i --save chatkit-vuex
 ```
+
+Now add it to your app.
+(Requires a new or existing Vuex store)
 
 ```javascript
 import ChatkitVuex from "chatkit-vuex";
@@ -25,7 +27,47 @@ new Vue({
 
 For dynamic install/code splitting, SSR, see [advanced topics](#advanced-topics)
 
-##
+## Basic Usage
+
+Setting up:
+```javascript
+const myTokenProvidingEndpoint = "http://tokens.myapp.io"; // Your custom auth endpoint or the Pusher test endpoint
+const myInstanceLocator = "us1:vxxxxxxx:xxxxxxxx"; // Get this from your Pusher dashboard
+const userId = "42"; // Fetch this from your API (or localStorage)
+
+export default MyComponent = {
+  beforeMount() {
+    this.setupChatkit();
+  },
+  methods: {
+    setupChatkit() {
+      return this.$store.dispatch('setTokenProvider', myTokenProvidingEndpoint).
+      then(() => {
+        this.$store.dispatch('connect', { instanceLocator, userId})
+      })
+    }
+  }
+}
+```
+
+Fetching messages from a room
+```javascript
+// Attach to a room you're a member of
+this.$store.dispatch('subscribeToRoom', {roomId, messageLimit});
+// Retrieve messages from the room
+this.$store.getters['chatkit/roomMessages'](roomId);
+
+```
+
+### Switching users
+
+To switch users, dispatch `connect` again with the new `userId`.
+
+### Closing the connection
+
+```javascript
+this.$store.dispatch('disconnectAllSubscriptions');
+```
 
 ## Reference
 
@@ -101,13 +143,15 @@ The complete list of permissions, according to the [JS SDK integration tests](`h
 ### Caveats
 See the official docs [here](https://docs.pusher.com/chatkit/core-concepts#limitations) and [here](https://docs.pusher.com/chatkit/core-concepts#limits)
 * Chatkit does not support editing messages.
-* Max users in a room: 100
-* Max message size: 5KB
-* Max custom_data size when creating users: 5KB
-* Max number of messages retrieved on resuming a room subscription: 100
-* Max number of users which can be added or removed from a room in a single request: 10
-* Max room name length: 60 characters
-* Max user ID length: 160 characters
+* Deleting message requires a `su` token.
+
+* Max `user`s in a room: 100
+* Max `message` size: 5KB
+* Max `custom_data` size when creating users: 5KB
+* Max number of `message`s retrieved on resuming a room subscription: 100
+* Max number of `user`s which can be added or removed from a room in a single request: 10
+* Max `room` name length: 60 characters
+* Max `user` ID length: 160 characters
 * Max attachment file size: 5MB
 
 ### Other
@@ -116,4 +160,23 @@ See the official docs [here](https://docs.pusher.com/chatkit/core-concepts#limit
 
 ## Contributing
 
-`Chatkit-Vuex` was developed at LoanMower
+`Chatkit-Vuex` was developed at LoanMower.
+
+## Internal Philosophy
+
+Chatkit's JS architecture is event driven: reacting to `Promise`s, callbacks (i.e, `room.on<thing>`, etc.).
+
+The Vue philosophy is reactive: `computed` properties watch variables and automatically propagate those changes.
+
+To reconcile these, `Chatkit-Vuex` stores many Chatkit results in Vuex state, which can be watched and retrieved with Vuex getters. Chatkit callbacks update the Vuex state.
+
+## Limitations
+
+No support for:
+* Server-side rendering.
+* Room creation & deletion
+* Message editing (Chatkit limitation)
+* Message deletion (due to permissions)
+
+Other:
+* All callbacks are registered, which may use more network requests then strictly necessary.

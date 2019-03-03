@@ -41,17 +41,18 @@ const state = {
   tokenProvider: undefined,
   currentUser: undefined,
   isConnected: false,
-  currentRooms: undefined, // TODO
-  typingUsers: []
+  typingUsers: [],
+  roomMessageCache: {}
 }
 
 const getters = {
-  users: state => state.currentUser.users,
-  usersInRoom: state => roomId => state.currentUser.rooms[roomId].users, // ???
+  currentUser: state => state.currentUser,
+  allUsers: state => state.currentUser.users,
+  usersInRoom: state => roomId => state.currentUser.rooms[roomId].users,
   rooms: state => state.currentUser.rooms, // Needs Better name 'The rooms that the connected user is a member of. '
+  roomIds: (_, getters) => getters.rooms.map(room => room.id),
+  isValidRoomId: (_, getters) => roomId => getters.roomIds.includes(roomId),
   roomSubscriptions: state => state.currentUser.roomSubscriptions, // The union of all the members of all the rooms that the current user is subscribed to.
-  fellowUsers: state => state.currentUser.users,
-  userPresences: (state, getters) => getters.fellowUsers.map(user => user.presence)
 }
 
 const mutations = {
@@ -60,9 +61,6 @@ const mutations = {
   },
   setCurrentUser: (state, currentUserObject) => {
     state.currentUser = currentUserObject;
-  },
-  setUserPresence: (state, userId, presence) => {
-    // TODO
   }
 }
 
@@ -96,7 +94,7 @@ const actions = {
       onPresenceChanged:   (newPresenceState, user) => dispatch('_userPresenceChanged', newPresenceState, user),
     }).
     connect(userObject => {
-      commit('setCurrentUser', userObject)
+      commit('setCurrentUser', userObject);
     });
   },
 
@@ -161,7 +159,6 @@ const actions = {
     // TODO
   },
 
-
   // Joining current user to rooms
   joinRoom({state}, { roomId }) {
     return state.currentUser.joinRoom({ roomId });
@@ -175,7 +172,6 @@ const actions = {
     return state.currentUser.getJoinableRooms();
   },
   
-
   subscribeToRoom({dispatch}, { roomId, messageLimit, hooks }){
     return state.currentUser.subscribeToRoom({
       roomId, 
@@ -184,6 +180,9 @@ const actions = {
         ...hooks,
         onMessage: (message) => dispatch('_messageArrived', message)
       }
+    }).then(() =>{
+      state.roomMessageCache[roomId] = []; // Create array for caching messages
+      dispatch('fetchMessages', {roomId});
     })
   },
 
@@ -196,8 +195,13 @@ const actions = {
     return state.currentUser.sendMessage({text, roomId, attachment})
   },
 
-  _messageArrived({state}, message) {
+  _messageArrived({dispatch}, message) {
+    dispatch('_addNewMessagesToRoomCache', {roomId: message.room.id, message});
+  },
 
+  _addNewMessagesToRoomCache: (state, {roomId, newMessages}, getters) => {
+    if(!getters.isValidRoomId(roomId)) throw `Invalid roomId ${roomId}`
+    state.roomMessageCache[roomId] = [state.roomMessageCache[roomId], ...newMessages];
   },
 
   /**
@@ -207,6 +211,10 @@ const actions = {
    */
   sendUserIsTypingEvent({state}, roomId) {
     return state.currentUser.isTypingIn({ roomId: roomId });
+  },
+
+  setUserPresence: (state, userId, presence) => {
+    // TODO
   },
 
   /**
@@ -224,17 +232,19 @@ const actions = {
       initialId: initialMessageId,
       direction: direction,
       limit: limit,
-    });
+    }).then(()=>{
+      dispatch('_messageArrived', {message});
+    })
   },
 
 
   sendUserReadCursor({roomId,position}) {
-
+    // TODO
   },
 
   // Get the read positon of any user // API readCursor silently defaults to currentUser. Poor design, do not expose!
   getReadCursor({roomId, userId}) {
-
+    // TODO
   }, 
 
   
@@ -252,7 +262,6 @@ const actions = {
   deleteRoom({state}, { roomId }) { 
     return state.currentUser.deleteRoom({ roomId }) 
   },
-  
   addUserToRoom: ({state}, {userId,roomId}) => {
     return state.currentUser.addUserToRoom({ userId, roomId });
   },
